@@ -1,0 +1,162 @@
+SQLite Table Lookup & Maintenance Module Specification
+
+1. Purpose
+A general-purpose UI module for:
+  Viewing
+  Sorting
+  Adding
+  Editing
+records in any SQLite table.
+The module must be reusable (callable from other programs) and also runnable standalone.
+
+Target: Windows 11. Implementation: Python 3 with PySide6.
+
+2. Inputs / Parameters
+2.1 Programmatic (embedded)
+The module accepts:
+  database_path (optional)
+  table_name (optional)
+  record_id (optional; scroll/select in the main list after load)
+
+When database_path and table_name are both provided:
+  Determine the table’s record ID column (see Section 9.1)
+  Load and display data ordered by the ID column (subject to user sort)
+  Position the list at the passed record_id when possible
+
+When parameters are omitted, last-used values may be restored from local storage (see 9.2).
+
+2.2 Command line
+Entry points:
+  python -m table_maint  [options]
+  python main.py         [options]   (project root; forwards to the same CLI)
+
+Options:
+  -d, --database       SQLite database file path
+  -t, --table          Table name
+  -r, --record, --id    Record ID for list positioning or edit context
+  -w, --window         list | edit
+       list  = main grid (default)
+       edit  = record add/edit form; without -d/-t opens a small launcher shell
+
+3. Main List View
+3.1 Data Display
+Display all columns for the table
+One row per record
+Default sort: by ID column (until the user changes header sort)
+
+3.2 Sorting
+Click column header → sort by that column (toggle asc/desc when same column)
+Ctrl + click → add to multi-column sort (compound ordering)
+
+3.3 Empty grid
+If the database file is missing: show a short error in the status area; no rows.
+If the table name is blank, invalid for the identifier rules, or not usable in that database:
+  Show no rows (no modal error). The database path may still be remembered.
+
+4. Edit / Add Functionality
+4.1 Edit Window
+Opened via Add/Edit or via -w edit with database and table.
+Must be:
+  Non-modal (separate top-level window; routine feedback avoids application-modal dialogs)
+  Implemented in table_maint.edit_window
+  Runnable standalone (python -m table_maint.edit_window or the launcher shell)
+
+4.2 Edit Window – Top Panel
+Same database/table controls as the main list view:
+  Database Path — editable, file picker
+  Table Name — editable
+  History dropdown — recent database file paths (see 9.2)
+Selecting a history entry sets the database path and triggers reload behavior.
+
+Changing database path or table name:
+  Reloads schema dynamically
+  Refreshes fields for the current record context
+  If the current record no longer exists → clear or reset the form
+
+4.3 Layout
+Fields displayed vertically
+One input per column
+Dynamically generated from table schema
+
+4.4 Behavior
+“Apply changes” commits updates; success closes the editor and refreshes the list when applicable.
+
+4.5 Add from main list
+From the main grid, “Add…” opens the record editor in insert mode.
+  If one or more rows are selected: the form is pre-filled with the values from the
+  topmost selected row (smallest visual row index among the current selection). The user
+  may change any field, including key columns, before applying; this is a new-row insert,
+  not an update of the template row.
+  If no row is selected: the form starts empty for optional (NULLable) columns (NULL
+  checked where applicable). Key columns and NOT NULL columns without defaults follow
+  the same rules as in §5 (required before save where applicable).
+
+4.6 ID Handling
+If ID is changed:
+  If no other row holds that ID → update (including primary key change where SQLite allows)
+  If another row already holds that ID → show a non-blocking error message
+Insert mode: reject if that ID already exists
+
+5. Data Rules
+5.1 Null Handling
+For each column:
+  If NULLABLE: UI may set NULL (checkbox where applicable)
+  If NOT NULL and the column has no schema DEFAULT: require a value before save
+  If NOT NULL and the column has a schema DEFAULT: an empty editor value omits that column
+    from the generated SQL. On add (INSERT), SQLite applies the column DEFAULT. On update
+    (UPDATE), the cell is not listed in SET, so the stored value is left unchanged.
+    A non-empty value is saved as usual.
+Applies to non-ID columns as enforced by schema; ID is always required (5.2).
+
+5.2 ID Column
+Resolved per Section 9.1. Treated as non-null and unique for application logic.
+
+6. Database & Table Controls (Main List View)
+6.1 Database Path
+Editable text field; file picker (Browse).
+
+6.2 Table Name
+Editable field; initially from parameter or restored session.
+
+6.3 History Dropdown
+Shows recent database file paths (most recent first), independent of the current table name.
+Selecting an entry sets the database path and reloads (table may remain as entered).
+
+7. Invocation Modes
+7.1 Embedded Mode
+Host supplies parameters where needed; may use open_table_maint() or TableMaintMainWindow(...).
+Host must run a Qt event loop.
+
+7.2 Standalone Mode
+Without CLI arguments: restore last database path from storage when available; optionally restore last table name.
+First run or empty storage: fields may start blank; no grid data until a valid database (and table for rows) is available.
+
+8. Module Requirements
+Reusable from other Python programs; runnable as __main__ or via main.py.
+Edit window lives in its own module and shares DatabaseTableControls with the main view.
+
+9. Key Design Rules
+9.1 Record key (“ID”) detection
+  All PRIMARY KEY columns, in PK order from PRAGMA table_info (composite keys allowed).
+  If no PK: the first column that appears in a single-column UNIQUE index, in table column order.
+  Else: the first multi-column UNIQUE index (by SQLite index name order).
+  If none of the above: error; the table cannot be maintained by this tool.
+Used as record identifier, default sort on key columns, and for positioning / add / edit /
+delete. For a composite key, the CLI accepts one -r/--record value per key column, in order.
+
+9.2 History and session storage
+Storage file (typical Windows location):
+  %APPDATA%\table_maint\db_history.json
+
+The file stores:
+  A global most-recently-used list of database file paths (not keyed by table name)
+  Last session: last database path and last table name (updated after a successful table load)
+
+Table names entered in the UI are restricted to letters, digits, and underscores for safe SQL identifiers.
+
+10. Key Design Constraints
+Dynamic schema (no hardcoded columns)
+Respect SQLite NULL / NOT NULL in the editor
+Multi-column sorting on the main grid
+Non-blocking UI: avoid modal message boxes for routine feedback; use non-modal messages or status text where appropriate
+Consistent database context between main list view and edit window
