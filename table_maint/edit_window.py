@@ -30,6 +30,7 @@ from table_maint.messages import (
     show_non_blocking,
     show_warning,
 )
+from table_maint.window_show import show_smoothly
 
 
 def _connect_rw(path: str) -> sqlite3.Connection:
@@ -407,9 +408,7 @@ class RecordEditWindow(QWidget):
                 pass
 
         win.destroyed.connect(_on_list_destroyed)
-        win.show()
-        win.raise_()
-        win.activateWindow()
+        show_smoothly(win, raise_=True, activate=True)
 
     def _clear_form_layout(self) -> None:
         while self._body_layout.count():
@@ -850,7 +849,7 @@ class StandaloneEditShell(QWidget):
                 pass
 
         editor.destroyed.connect(_on_destroyed)
-        editor.show()
+        show_smoothly(editor, raise_=True, activate=True)
 
 
 # Avoid broken placeholder in module-level standalone
@@ -859,7 +858,7 @@ def run_edit_standalone() -> None:
 
     app = QApplication([])
     s = StandaloneEditShell()
-    s.show()
+    show_smoothly(s)
     app.exec()
 
 

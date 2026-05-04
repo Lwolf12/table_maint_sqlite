@@ -7,6 +7,8 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
+from table_maint.window_show import show_smoothly
+
 
 def _cli_record_key(raw_parts: list[str] | None) -> object | None:
     """Build API record key from CLI parts (one -r per key column)."""
@@ -68,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     if window == "edit":
         if not args.database or not args.table:
             shell = StandaloneEditShell()
-            shell.show()
+            show_smoothly(shell)
             return app.exec()
 
         try:
@@ -82,9 +84,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"table_maint: {e}", file=sys.stderr)
             return 1
 
-        win.show()
-        win.raise_()
-        win.activateWindow()
+        show_smoothly(win, raise_=True, activate=True)
         return app.exec()
 
     if window == "list":
@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
             table_name=args.table,
             record_id=record_key,
         )
-        win.show()
+        show_smoothly(win)
         return app.exec()
 
     # --window omitted: optional edit when ID exists
@@ -106,9 +106,7 @@ def main(argv: list[str] | None = None) -> int:
                     record_id=record_key,
                     parent=None,
                 )
-                win.show()
-                win.raise_()
-                win.activateWindow()
+                show_smoothly(win, raise_=True, activate=True)
                 return app.exec()
         except Exception as e:  # noqa: BLE001 — fall back to list
             print(f"table_maint: {e}", file=sys.stderr)
@@ -118,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
         table_name=args.table,
         record_id=record_key,
     )
-    win.show()
+    show_smoothly(win)
     return app.exec()
 
 

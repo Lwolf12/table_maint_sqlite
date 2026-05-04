@@ -24,6 +24,7 @@ from table_maint.controls import DatabaseTableControls
 from table_maint.edit_window import RecordEditWindow
 from table_maint.flat_model import FlatTableModel
 from table_maint.messages import confirm_yes_default, show_non_blocking, show_warning
+from table_maint.window_show import show_smoothly
 
 
 def _connect(path: str) -> sqlite3.Connection:
@@ -331,9 +332,7 @@ class TableMaintMainWindow(QMainWindow):
             w.record_saved.connect(self._reload_data)
             w.record_deleted.connect(self._reload_data)
             self._retain_edit_window(w)
-            w.show()
-            w.raise_()
-            w.activateWindow()
+            show_smoothly(w, raise_=True, activate=True)
 
     def _on_delete_selected(self) -> None:
         path = self._controls.database_path().strip()
@@ -435,9 +434,7 @@ class TableMaintMainWindow(QMainWindow):
         w.record_saved.connect(self._reload_data)
         w.record_deleted.connect(self._reload_data)
         self._retain_edit_window(w)
-        w.show()
-        w.raise_()
-        w.activateWindow()
+        show_smoothly(w, raise_=True, activate=True)
 
     def _on_edit(self) -> None:
         self._open_edit_windows_for_rows(self._selected_row_indexes())
